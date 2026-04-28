@@ -1,12 +1,17 @@
 ## PCA 
-###############################
+####################################
 Step 1 — Import Libraries and Load Data
+
 library(readxl)
+
 library(REdaS)
 
 pca_p <- read_excel("MTE_BA_G2.xlsx", sheet = "PCA")
+
 head(pca_p)    # Preview first 6 rows
+
 attach(pca_p)  # Allow direct column name references
+
 ####################################
 Step 2 — Data Exploration
 str(pca_p)           # Structure: variable types and dimensions

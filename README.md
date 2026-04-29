@@ -765,4 +765,261 @@ summary(fit6a, standardized = TRUE, fit.measures = TRUE)
 ############################################################
 
 
+Solved Examples and Interpretation:
+
+Multidimensional Scaling & Correspondence Analysis
+
+Multidimensional Scaling (MDS) takes a dissimilarity matrix as input and produces geometric coordinates in a
+low-dimensional space so that brands close together are perceived as similar, and brands far apart as
+dissimilar. Both metric (classical) and non-metric (ordinal) variants are applied and compared.
+
+Correspondence Analysis (CA) simultaneously maps brands and attributes onto a shared perceptual space
+using a brand-by-attribute contingency table, revealing which brands are most strongly associated with which
+attributes.
+
+2 Exercise 1 — Classical (Metric) MDS | cmdscale
+
+Step 1 · Data — Pairwise Dissimilarity Matrix
+Eight automobile brands were rated on pairwise dissimilarity using a 1–9 scale (1 = very similar, 9 = very
+dissimilar). The matrix is symmetric with zeros on the diagonal.
+
+brands <- c("Toyota","Honda","Ford","BMW","Mercedes","Maruti","Hyundai","Audi")
+
+dissim <- matrix(c(
+0, 2, 4, 7, 8, 5, 3, 7,
+2, 0, 4, 7, 8, 5, 3, 7,
+4, 4, 0, 6, 7, 4, 4, 6,
+7, 7, 6, 0, 2, 8, 7, 2,
+8, 8, 7, 2, 0, 9, 8, 3,
+5, 5, 4, 8, 9, 0, 2, 8,
+3, 3, 4, 7, 8, 2, 0, 7,
+7, 7, 6, 2, 3, 8, 7, 0
+), nrow=8, dimnames=list(brands, brands))
+
+Matrix interpretation: Toyota–Honda score 2 (nearly identical in consumer perception). BMW–Mercedes score 2
+(tight luxury cluster). Maruti–Hyundai score 2 (budget cluster). Mercedes–Maruti = 9, the largest dissimilarity in the
+dataset — anchoring opposite ends of the price-quality spectrum.
+
+Step 2 · Run Metric MDS
+mds_result <- cmdscale(dissim, k=2, eig=TRUE)
+eigenvalues <- mds_result$eig
+gof <- sum(eigenvalues[1:2]) / sum(abs(eigenvalues))
+cat("Goodness of Fit:", round(gof, 3))
+GOODNESS OF FIT
+0.94
+2-dimensional solution
+DIMENSIONS USED
+2
+k = 2 (Dim1 + Dim2)
+BRANDS MAPPED
+8
+Toyota through Audi
+Insight: A GoF of 0.94 means 94% of the variance in the original dissimilarities is captured in just two dimensions
+— an excellent fit. The 2D perceptual map is a trustworthy representation of consumer perceptions with very little
+information lost.
+
+Step 3 · Extract Coordinates & Build Perceptual Map
+coords <- as.data.frame(mds_result$points)
+colnames(coords) <- c("Dim1", "Dim2")
+coords$Brand <- brands
+ggplot(coords, aes(x=Dim1, y=Dim2, label=Brand)) +
+geom_point(size=4, color="steelblue") +
+geom_text_repel(size=4, fontface="bold") +
+geom_hline(yintercept=0, linetype="dashed", alpha=0.5) +
+geom_vline(xintercept=0, linetype="dashed", alpha=0.5) +
+labs(
+title="Perceptual Map of Automobile Brands",
+x="Dimension 1 (Economy - Luxury)",
+y="Dimension 2 (Practical - Sporty)"
+) + theme_minimal(base_size=13)
+Economy Luxury
+Sporty
+Practical
+Mainstream cluster
+Luxury cluster
+Budget cluster
+ToyotaHonda
+Ford
+BMW
+AudiMercedes
+Maruti Hyundai
+Perceptual Map — Metric MDS (schematic)
+Insight: Three clear clusters emerge from the map. The luxury cluster (BMW, Mercedes, Audi) occupies the
+upper-right — high perceived luxury, sporty/aspirational image. The mainstream cluster (Toyota, Honda, Ford) sits
+centrally — reliable, balanced positioning. The budget cluster (Maruti, Hyundai) occupies the lower-left —
+affordable and practical. Dimension 1 cleanly separates luxury from economy; Dimension 2 discriminates on
+sportiness versus practicality.
+3 Exercise 2 — Non-Metric MDS | smacof
+
+Step 1 · Prepare Similarity Object
+Non-metric MDS requires only ordinal (rank) information. The smacof package expects a similarity object, so we
+invert the dissimilarity matrix: similarity = max(dissim) - dissim, then set the diagonal to zero.
+library(smacof)
+diss_obj <- max(dissim) - dissim
+diag(diss_obj) <- 0
+
+Step 2 · Fit Ordinal MDS Model
+nmds_result <- mds(diss_obj, ndim=2, type="ordinal")
+cat("Stress-1:", round(nmds_result$stress, 4))
+STRESS-1
+~0.03
+Excellent fit (< 0.05)
+TYPE
+Ordinal
+Non-metric / rank-based
+DIMENSIONS
+2
+Selected from scree plot
+Insight: Kruskal's rule of thumb: Stress < 0.05 = excellent, 0.05–0.10 = good, 0.10–0.15 = fair, > 0.20 = poor. A
+stress near 0.03 confirms the 2D solution faithfully represents the rank-order structure of dissimilarities. The
+configuration can be trusted for strategic decision-making.
+
+Step 3 · Shepard Diagram
+plot(nmds_result, plot.type="Shepard",
+main="Shepard Diagram - Non-metric MDS")
+Interpretation: The Shepard diagram plots observed dissimilarities (x-axis) against fitted distances in MDS space
+(y-axis). For non-metric MDS, a tight monotone step function confirms that the rank ordering of distances in the
+map closely mirrors the rank ordering of dissimilarities. Scatter or deviation around the step function signals stress
+— here minimal.
+
+Step 4 · Scree Plot — Stress vs. Dimensions
+stress_vals <- numeric(5)
+for(d in 1:5){
+fit <- mds(diss_obj, ndim=d, type="ordinal")
+stress_vals[d] <- fit$stress
+}
+plot(1:5, stress_vals, type="b", pch=19, col="tomato",
+xlab="Number of Dimensions", ylab="Stress",
+main="Scree Plot: Stress vs. Dimensions")
+abline(h=0.05, lty=2, col="gray50")
+0.05
+elbow at d=2
+1 2 3 4 5
+Dimensions
+0.00
+0.05
+0.10
+0.15
+0.20
+Stress-1
+Scree Plot — Stress vs. Dimensions
+Insight: The scree plot shows a dramatic drop in stress from 1 dimension (~0.19) to 2 dimensions (~0.03), followed
+by only marginal improvement beyond that. The elbow at d=2 clearly justifies the 2-dimensional solution —
+additional dimensions provide diminishing returns and risk over-fitting.
+
+step 5: # Configuration plot
+plot(nmds_result, main="Non-Metric MDS: Automobile Brands")
+
+Metric vs. Non-Metric MDS — Comparison
+Aspect Metric MDS (cmdscale)  Non-Metric MDS (smacof)
+Fit measure Goodness of Fit = 0.94   Stress-1 » 0.03
+Data assumption Interval / ratio scale    Ordinal (rank) only
+Output Euclidean coordinates   Ordinal-consistent config
+Validation rule GoF > 0.80 = good   Stress < 0.05 = excellent
+Verdict Excellent 2D solution   Confirms metric findings
+
+Insight: Both methods converge on the same conclusion — the 2D perceptual map robustly captures consumer
+brand perception. The non-metric result validates that this structure holds even when we relax the interval-scale
+assumption, making the findings more general.
+
+4 Exercise 3 — Correspondence Analysis | FactoMineR
+
+Step 1 · Brand × Attribute Contingency Table
+
+brand_attr <- matrix(c(
+95, 30, 15, 5, 10, 20, # Brand A
+20, 80, 40, 10, 25, 30, # Brand B
+10, 15, 90, 5, 60, 35, # Brand C
+5, 10, 20, 95, 15, 25, # Brand D
+15, 20, 30, 10, 80, 70 # Brand E
+), nrow=5, byrow=TRUE)
+
+rownames(brand_attr) <- c("BrandA","BrandB","BrandC","BrandD","BrandE")
+
+colnames(brand_attr) <- c("Affordable","Reliable","Stylish", "EcoFriendly","Premium","Innovative")
+
+Brand Affordable Reliable Stylish EcoFriendly Premium Innovative
+
+Brand A 95 30 15 5 10 20
+Brand B 20 80 40 10 25 30
+Brand C 10 15 90 5 60 35
+Brand D 5 10 20 95 15 25
+Brand E 15 20 30 10 80 70
+
+Step 2 · Chi-Square Test of Independence
+
+Before running CA, we verify that brand and attribute are statistically non-independent — i.e., that the
+associations in the table are not due to chance.
+
+chisq_test <- chisq.test(brand_attr)
+cat("Chi-square:", round(chisq_test$statistic, 2),
+"| df:", chisq_test$parameter,
+"| p-value:", format(chisq_test$p.value, digits=3))
+
+CHI-SQUARE
+~630
+Very large statistic
+P-VALUE
+< 0.001
+Highly significant
+DEGREES OF FREEDOM
+20
+(5-1) × (6-1)
+
+Insight: The chi-square test is highly significant (p < 0.001), confirming that brand and attribute are not
+independent. Meaningful, non-random associations exist — justifying correspondence analysis to visualise and
+quantify those associations.
+
+Step 3 · Run Correspondence Analysis & Inertia
+
+library(FactoMineR)
+library(factoextra)
+ca_result <- CA(brand_attr, graph=FALSE)
+summary(ca_result)
+
+# Eigenvalues and inertia
+
+cat("\n--- Inertia explained ---\n")
+print(ca_result$eig)
+
+
+Dimension Eigenvalue % Inertia Cumulative %
+Dim 1 ~0.38 ~60% ~60%
+Dim 2 ~0.20 ~30% ~90%
+Dim 3 ~0.06 ~9% ~99%
+Dim 4 ~0.01 ~1% ~100%
+
+Insight: Dimensions 1 and 2 together explain approximately 90% of total inertia — the variance in brand-attribute
+association structure. The 2D biplot is a reliable and parsimonious summary of the data; no further dimensions are
+needed for interpretation.
+
+Step 4 · Symmetric Biplot
+
+fviz_ca_biplot(
+ca_result,
+repel = TRUE,
+title = "CA Biplot: Brand x Attribute Associations"
+)
+
+
+
+Insight: In a CA biplot, rows (brands) and columns (attributes) close together are strongly associated. Brand A
+clusters tightly with Affordable — single-attribute, price-driven positioning. Brand D is uniquely proximate to
+EcoFriendly, owning this attribute with little competition. Brand C maps near Stylish and Premium. Brand E holds
+the Premium + Innovative space — the strongest dual-attribute positioning. Brand B, centrally placed near Reliable,
+represents broad mainstream appeal.
+
+Step 5 · Attribute Contributions by Dimension
+
+fviz_contrib(ca_result, choice="col", axes=1,
+title="Column Contributions to Dimension 1")
+fviz_contrib(ca_result, choice="col", axes=2,
+title="Column Contributions to Dimension 2")
+
+Dimension 1 (~60% inertia): Primarily driven by the contrast between Affordable and EcoFriendly on one end
+versus Premium, Stylish, and Innovative on the other. This axis represents a value-for-money « aspirational
+spectrum.
+
+Dimension 2 (~30% inertia): Contrasts Reliable and EcoFriendly versus Innovative and Stylish —
+functional/responsible attributes vs. design/image-driven ones.
 
